@@ -1,31 +1,48 @@
-/*import com.javax0.license3j.licensor.License
-import com.javax0.license3j.licensor.encrypt.PGPHelper*/
-import javax0.license3j.License
+import javax0.license3j.{Feature, License}
 import javax0.license3j.crypto.LicenseKeyPair
+import javax0.license3j.io.{IOFormat, KeyPairWriter, LicenseWriter}
+
+import java.text.SimpleDateFormat
+import org.apache.commons.cli._
+
+object CreateLicences {
+
+  def main(args: Array[String]) {
 
 /*
-import org.apache.commons.cli.Options
-import java.io._
+    val options = new Options
+    options.addOption("mau", true, "number of active users per month")
+
+
+    val parser = new DefaultParser
+    val commandLine = parser.parse(options, args)
 */
 
 
-object CreateLicences extends App{
 
- println("starting")
-/* val b = new License().setHashAlgorithm(512)
- println(b.calculatePublicKeyRingDigest())*/
- //println(b.calculatePublicKeyRingDigest())
- //println(b.calculatePublicKeyRingDigest())
 
-  val license = new License
-  val a = LicenseKeyPair.Create.from("RSA", 512)
-  println(a.getPublic)
-  println(a.getPrivate)
-  println(a.getPair)
+    val activeUsers = 12
+    val owner = "617ab3fa5a6005446075637f"
 
-  //var file = new PrintWriter(new File("C:\\Users\\r.gentuk\\IdeaProjects\\CreateLicences\\pair.txt"))
-  //file.write(s"${a.getPair}")
-  //val options = new Options()
-  //options.addOption()
+    val license = new License
+    val keyPair = LicenseKeyPair.Create.from("RSA", 512)
 
+    license.setLicenseId
+
+    val formatter = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss.SSS")
+    val date = formatter.parse("2023-01-01 01:01:01.000")
+    license.setExpiry(date)
+
+    license.sign(keyPair.getPair().getPrivate(), "SHA")
+    license.add(Feature.Create.intFeature("mau", activeUsers))
+    license.add(Feature.Create.stringFeature("owner", s"${owner}"))
+
+    println(license.toString)
+
+    var writerLicense = new LicenseWriter(s"license-${owner}")
+    writerLicense.write(license, IOFormat.BINARY)
+
+    var writerKey = new KeyPairWriter(s"private-${owner}", s"public-${owner}")
+    writerKey.write(keyPair, IOFormat.BINARY)
+  }
 }

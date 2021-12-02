@@ -1,4 +1,4 @@
-import com.typesafe.scalalogging.{LazyLogging, Logger}
+import com.typesafe.scalalogging.{Logger}
 import javax0.license3j.{Feature, License}
 import javax0.license3j.crypto.LicenseKeyPair
 import javax0.license3j.io.{IOFormat, KeyPairWriter, LicenseWriter}
@@ -6,7 +6,7 @@ import javax0.license3j.io.{IOFormat, KeyPairWriter, LicenseWriter}
 import java.text.SimpleDateFormat
 import org.apache.commons.cli._
 
-import java.util.{Date, NoSuchElementException}
+import java.util.{Date}
 
 
 object Licences {
@@ -54,7 +54,6 @@ object Licences {
     formatter.parse(rowDate)
   }
 
-
   def createKeyPair(keyCipher: String, keySize: Int, nameCompany: String): LicenseKeyPair ={
     logger.debug("create key pair")
     val keyPair = LicenseKeyPair.Create.from(keyCipher, keySize)
@@ -82,7 +81,7 @@ object Licences {
     license
   }
 
-  def writeLicence(license: License, idCompany: String): Unit = {
+  def writeLicence(license: License): Unit = {
     logger.debug("record license to file")
     val writerLicense = new LicenseWriter(s"license-${license.getFeatures.get(LICENSEOWN).getString}")
     writerLicense.write(license, IOFormat.BINARY)
@@ -96,7 +95,6 @@ object Licences {
 
   def main(args: Array[String]): Unit = {
     val parser = new DefaultParser
-    val cmd = parser.parse(options, args)
-    writeLicence(createLicence(cmd), parsingOWN(cmd))
+    writeLicence(createLicence(parser.parse(options, args)))
   }
 }

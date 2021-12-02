@@ -23,12 +23,10 @@ object Licences {
   private val LICENSEMAU = "mau"
   private val LICENSEDATE = "expiryDate"
 
-
   val options = new Options
   options.addOption(MAU, true, "number of active users per month")
   options.addOption(OWN, true, "id of the company for which the license is issued")
   options.addOption(DATE, true, s"expiry date. format ${DATEFORMAT}")
-
 
   def parsingMAU( cmd: CommandLine): Int = {
     try {
@@ -99,7 +97,6 @@ object Licences {
       case (x, (y, z)) if (x <= 0 | y.before(new Date(System.currentTimeMillis())) | z.length == 0) =>
         logger.error("the license was not created")
         null
-
       case _ =>
         license.sign(keyPair.getPair().getPrivate(), LICENSEDIGEST)
         logger.debug("sign license")
@@ -135,18 +132,16 @@ object Licences {
 
   def main(args: Array[String]): Unit = {
 
-
     val parser = new DefaultParser
     try {
       val cmd = parser.parse(options, args)
       val keyPair = createKeyPair(KEYCIPHER,KEYSIZE)
       writeLicenceAndKey(keyPair, createLicence(cmd,keyPair))
-      logger.debug(s"public key: \n${getPubKey(keyPair)}")
+      //logger.debug(s"public key: \n${getPubKey(keyPair)}")
     }
     catch {
       case ex: MissingArgumentException =>
         logger.error("there are not enough input parameters")
     }
-
   }
 }

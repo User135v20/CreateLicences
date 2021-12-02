@@ -29,7 +29,7 @@ object Licences {
   options.addOption(DATE, true, s"expiry date. format: ${DATEFORMAT}")
 
 
-  def parsingMUA( cmd: CommandLine): Int = {
+  def parsingMAU( cmd: CommandLine): Int = {
     try {
       val activeUsers = cmd.getOptionValue(MAU).toInt
       logger.debug(s"parse from cmd. ${options.getOption(MAU).getDescription}: ${activeUsers}")
@@ -72,7 +72,7 @@ object Licences {
     license.setExpiry(parsingDATE(cmd))
     logger.debug("set license date")
 
-    license.add(Feature.Create.intFeature(LICENSEMAU, parsingMUA(cmd)))
+    license.add(Feature.Create.intFeature(LICENSEMAU, parsingMAU(cmd)))
     logger.debug(s"add license ${options.getOption(MAU).getDescription}")
     val idCompany = parsingOWN(cmd)
     license.add(Feature.Create.stringFeature(LICENSEOWN, idCompany))

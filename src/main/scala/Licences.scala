@@ -4,7 +4,7 @@ import javax0.license3j.crypto.LicenseKeyPair
 import javax0.license3j.io.{IOFormat, KeyPairWriter, LicenseWriter}
 
 import java.text.SimpleDateFormat
-import org.apache.commons.cli._
+import org.apache.commons.cli.{CommandLine, DefaultParser, MissingArgumentException, Options}
 
 import java.security.PublicKey
 import java.util.Date
@@ -116,13 +116,13 @@ object Licences {
 
   def writeLicence(license: License): Unit = {
     val writerLicense = new LicenseWriter(s"license-${license.getFeatures.get(LICENSEOWN).getString}")
-    writerLicense.write(license, IOFormat.BINARY)
+    writerLicense.write(license, IOFormat.BASE64)
     logger.debug("license was recorded")
   }
 
   def writeKey(keyPair: LicenseKeyPair, idCompany: String): Unit = {
     val writerKey = new KeyPairWriter(s"private-${idCompany}", s"public-${idCompany}")
-    writerKey.write(keyPair, IOFormat.BINARY)
+    writerKey.write(keyPair, IOFormat.BASE64)
     logger.debug("keys was recorded to file")
   }
 

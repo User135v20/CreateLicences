@@ -12,13 +12,13 @@ import java.util.Date
 
 object Licences {
 
-  class NotValidDataException extends RuntimeException
+  class NotValidDateException extends RuntimeException
 
-  class ArgumentException extends RuntimeException
+  class DateHasAlreadyExpiredException extends RuntimeException
 
-  class FolderException extends RuntimeException
+  class PrivKeyAlreadyExistsException extends RuntimeException
 
-  class OwnException extends RuntimeException
+  class EmptyOwnException extends RuntimeException
 
   def getInformation(): String = {
     "\nTo output help, run the jar file without parameters\n"
@@ -26,7 +26,7 @@ object Licences {
 
   def helper(): Unit = {
     val formatter = new HelpFormatter
-    formatter.printHelp("CreateLicences", options)
+    formatter.printHelp("CreateLicences", options).toString
   }
 
   val logger = Logger("CreateLicences")
@@ -42,6 +42,11 @@ object Licences {
   private val LICENSEDIGEST = "SHA"
   private val LICENSEOWN = "owner"
   private val LICENSEMAU = "mau"
+  private val ADDRESSSLASH = s"${System.getProperty("user.dir")}" match {
+    case x if x.contains(s"\\") => s"\\"
+    case x if x.contains("/") => "/"
+  }
+  private val WORKINGDIRECTORYADDRESS = System.getProperty("user.dir") + ADDRESSSLASH
 
   val options = new Options
   options.addOption("", false, "usage scenario: \n" +
@@ -107,19 +112,22 @@ object Licences {
     val writerLicense = new LicenseWriter(s"${idCompany}/license-${idCompany}")
     writerLicense.write(license, IOFormat.STRING)
     //logger.debug("license was recorded")
+    System.out.println(s"The license was created and written to a file license-${idCompany} " +
+      s"\nin folder: ${WORKINGDIRECTORYADDRESS + idCompany}")
   }
 
   def writeKey(keyPair: LicenseKeyPair, idCompany: String): Unit = {
 
-    val path = Paths.get(s"${idCompany}")
-    if (Files.exists(path)) {
-      throw new FolderException
+    val pathPrivate = Paths.get(s"${idCompany}/private-${idCompany}")
+    if (Files.exists(pathPrivate)) {
+      logger.error(s"There are already keys in the folder \n${WORKINGDIRECTORYADDRESS + idCompany}")
+      throw new PrivKeyAlreadyExistsException
     }
     else {
       new File(s"${idCompany}").mkdir
-      val writerKey = new KeyPairWriter(s"${idCompany}/private-${idCompany}", s"${idCompany}/public-${idCompany}")
+      val writerKey = new KeyPairWriter(s"${idCompany}${ADDRESSSLASH}private-${idCompany}", s"${idCompany}${ADDRESSSLASH}public-${idCompany}")
       writerKey.write(keyPair, IOFormat.BASE64)
-      //logger.debug("keys was recorded to file")
+      System.out.println(s"Keys were written to a files private-${idCompany} and public-${idCompany} \nin the folder ${WORKINGDIRECTORYADDRESS + idCompany}")
     }
   }
 
@@ -156,42 +164,44 @@ object Licences {
     try {
       val cmd = parser.parse(options, args)
       cmd match {
-        case x if ((x.hasOption(KEYS) || x.hasOption(MAU) || x.hasOption(DATE) || x.hasOption(OWN)) == false) =>
+        case x if (!(x.hasOption(KEYS) || x.hasOption(MAU) || x.hasOption(DATE) || x.hasOption(OWN))) =>
           helper()
 
         case x if (x.hasOption(KEYS)) =>
           val own = parsingOWN(cmd)
-          if (own != null) {
+          if (cmd.hasOption(OWN) && own != None) {
             val keyPair = createKeyPair(KEYCIPHER, KEYSIZE)
             writeKey(keyPair, own)
             System.out.println("PUBLIC KEY")
             System.out.println(getPubKey(keyPair))
           }
           else
-            throw new OwnException
+            throw new EmptyOwnException
 
         case _ =>
           val own = parsingOWN(cmd)
           val mua = parsingMAU(cmd)
           val date = parsingDATE(cmd)
 
-          (mua, (own, date)) match {
-            case (x, (_, _)) if x <= 0 => throw new NumberFormatException
-            case (_, (y, _)) if y == null => throw new OwnException
-            case (_, (_, z)) if (z.before(new Date(System.currentTimeMillis()))) => throw new NotValidDataException()
-            case _ =>
-              val keyReader = new KeyPairReader(s"${own}/private-${own}")
-              val privatekey = keyReader.readPrivate(IOFormat.BASE64)
-              writeLicence(createLicence(mua, own, date, privatekey.getPair.getPrivate))
-              System.out.println("The license was created and written to a file")
-          }
+          if (mua > 0)
+            if (own != None)
+              if (date.after(new Date(System.currentTimeMillis()))) {
+                val keyReader = new KeyPairReader(s"${own}${ADDRESSSLASH}private-${own}")
+                val privatekey = keyReader.readPrivate(IOFormat.BASE64)
+                writeLicence(createLicence(mua, own, date, privatekey.getPair.getPrivate))
+              }
+              else throw new DateHasAlreadyExpiredException
+            else throw new EmptyOwnException
+          else throw new NumberFormatException
       }
     }
     catch {
-      case ex: FolderException =>
-        logger.error("the folder with the specified company ID already exists")
+      case ex: PrivKeyAlreadyExistsException =>
         System.out.println(getInformation())
-      case ex: NotValidDataException =>
+      case ex: DateHasAlreadyExpiredException =>
+        logger.error("Date has already expired")
+        System.out.println(getInformation())
+      case ex: NotValidDateException =>
         logger.error(s"expire date is not valid")
         System.out.println(getInformation())
       case ex: NumberFormatException =>
@@ -200,17 +210,14 @@ object Licences {
       case ex: java.text.ParseException =>
         logger.error(s"Error parsing ${options.getOption(DATE).getDescription}")
         System.out.println(getInformation())
-      case ex: OwnException =>
+      case ex: EmptyOwnException =>
         logger.error(s"Error parsing ${options.getOption(OWN).getDescription}")
         System.out.println(getInformation())
       case ex: NullPointerException =>
         logger.error(s"Error parsing ${options.getOption(DATE).getDescription}")
         System.out.println(getInformation())
-      case ex: ArgumentException =>
-        logger.error("There are not enough input parameters")
-        System.out.println(getInformation())
       case ex: UnrecognizedOptionException =>
-        logger.error("Invalid input data")
+        logger.error("Invalid command entered")
         System.out.println(getInformation())
       case ex: MissingArgumentException =>
         logger.error("There are not enough input parameters")

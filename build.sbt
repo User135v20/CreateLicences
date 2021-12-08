@@ -12,3 +12,4 @@ libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8" % Test
 
 assemblyJarName in assembly := "CreateLicences.jar"
+coverageEnabled := true

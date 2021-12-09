@@ -13,3 +13,5 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8" % Test
 
 assemblyJarName in assembly := "CreateLicences.jar"
 coverageEnabled := true
+
+scapegoatVersion in ThisBuild := "1.4.11"

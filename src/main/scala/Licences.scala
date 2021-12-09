@@ -8,11 +8,11 @@ import java.io.{File, FileNotFoundException}
 import java.nio.file.{Files, Paths}
 import java.security.{MessageDigest, PrivateKey}
 import java.text.SimpleDateFormat
-import java.util.Date
+import java.util.{Date, TimeZone}
 
 object Licences {
 
-  class NotValidDateException extends RuntimeException
+  class ExpireDateMissingException extends RuntimeException
 
   class DateHasAlreadyExpiredException extends RuntimeException
 
@@ -36,23 +36,21 @@ object Licences {
   private val OWN = "o"
   private val DATE = "d"
 
-  private val DATEFORMAT = "yyyy-mm-dd hh:mm:ss"
+  private val DATEFORMAT = "yyyy-MM-dd HH:mm:ss"
   private val KEYCIPHER = "RSA"
   private val KEYSIZE = 512
   private val LICENSEDIGEST = "SHA"
   private val LICENSEOWN = "owner"
   private val LICENSEMAU = "mau"
-  private val ADDRESSSLASH = s"${System.getProperty("user.dir")}" match {
-    case x if x.contains(s"\\") => s"\\"
-    case x if x.contains("/") => "/"
-  }
-  private val WORKINGDIRECTORYADDRESS = System.getProperty("user.dir") + ADDRESSSLASH
+  private val SEPARATOR = File.separator
+
+  private val WORKINGDIRECTORYADDRESS = System.getProperty("user.dir") + SEPARATOR
 
   val options = new Options
   options.addOption("", false, "usage scenario: \n" +
     "1. Creating a private key/ public key pair and" +
     " output of the public key in java code format.\nRequired parameters: > company id.\n" +
-    ".                    > flag generate-keys\n" +
+    ".                    > flag 'k'\n" +
     "2. Creating a license file. \nRequired parameters: > number of active users,\n" +
     ".                    > expire date,\n" +
     ".                    > company id.\n \n . ")
@@ -67,17 +65,23 @@ object Licences {
     activeUsers
   }
 
-  def parsingOWN(cmd: CommandLine): String = {
-    val owner = cmd.getOptionValue(OWN)
+  def parsingOWN(cmd: CommandLine): scala.Option[String] = {
+    scala.Option(cmd.getOptionValue(OWN))
     //logger.debug(s"parse ${options.getOption(OWN).getDescription}: ${owner}")
-    owner
   }
 
-  def parsingDATE(cmd: CommandLine): Date = {
-    val formatter = new SimpleDateFormat(DATEFORMAT)
-    val rowDate = cmd.getOptionValue(DATE)
-    //logger.debug(s"parse ${options.getOption(DATE).getDescription}: ${rowDate}")
-    formatter.parse(rowDate)
+  def getDate(cmd: CommandLine): Date = {
+
+    def parsingDATE: scala.Option[String] = scala.Option(cmd.getOptionValue(DATE))
+
+    parsingDATE match {
+      case Some(date) =>
+        val formatter = new SimpleDateFormat(DATEFORMAT)
+        formatter.setTimeZone(TimeZone.getTimeZone("UTC"))
+        formatter.parse(date)
+      case _ => throw new ExpireDateMissingException
+    }
+
   }
 
   def createKeyPair(keyCipher: String, keySize: Int): LicenseKeyPair = {
@@ -109,7 +113,7 @@ object Licences {
 
   def writeLicence(license: License): Unit = {
     val idCompany = license.getFeatures.get(LICENSEOWN).getString
-    val writerLicense = new LicenseWriter(s"${idCompany}/license-${idCompany}")
+    val writerLicense = new LicenseWriter(s"${idCompany + SEPARATOR}license-${idCompany}")
     writerLicense.write(license, IOFormat.STRING)
     //logger.debug("license was recorded")
     System.out.println(s"The license was created and written to a file license-${idCompany} " +
@@ -118,14 +122,14 @@ object Licences {
 
   def writeKey(keyPair: LicenseKeyPair, idCompany: String): Unit = {
 
-    val pathPrivate = Paths.get(s"${idCompany}/private-${idCompany}")
+    val pathPrivate = Paths.get(s"${idCompany + SEPARATOR}private-${idCompany}")
     if (Files.exists(pathPrivate)) {
-      logger.error(s"There are already keys in the folder \n${WORKINGDIRECTORYADDRESS + idCompany}")
+      logger.error(s"Keys already exists in the folder \n${WORKINGDIRECTORYADDRESS + idCompany}")
       throw new PrivKeyAlreadyExistsException
     }
     else {
       new File(s"${idCompany}").mkdir
-      val writerKey = new KeyPairWriter(s"${idCompany}${ADDRESSSLASH}private-${idCompany}", s"${idCompany}${ADDRESSSLASH}public-${idCompany}")
+      val writerKey = new KeyPairWriter(s"${idCompany}${SEPARATOR}private-${idCompany}", s"${idCompany}${SEPARATOR}public-${idCompany}")
       writerKey.write(keyPair, IOFormat.BASE64)
       System.out.println(s"Keys were written to a files private-${idCompany} and public-${idCompany} \nin the folder ${WORKINGDIRECTORYADDRESS + idCompany}")
     }
@@ -138,7 +142,7 @@ object Licences {
 
     def convertToJavaCode(i: Int, maxIndex: Int, str: String, f: Int => Int): String = {
 
-      def bytesToString(i: Int): String = String.format("(byte)0x%02X, ", (f(i) & 0xff))
+      def bytesToString(j: Int): String = String.format("(byte)0x%02X, ", (f(j) & 0xff))
 
       i match {
         case x if (x < maxIndex) =>
@@ -168,53 +172,60 @@ object Licences {
           helper()
 
         case x if (x.hasOption(KEYS)) =>
-          val own = parsingOWN(cmd)
-          if (cmd.hasOption(OWN) && own != None) {
-            val keyPair = createKeyPair(KEYCIPHER, KEYSIZE)
-            writeKey(keyPair, own)
-            System.out.println("PUBLIC KEY")
-            System.out.println(getPubKey(keyPair))
+          val ownOption = parsingOWN(cmd)
+          ownOption match {
+            case Some(own) =>
+              val keyPair = createKeyPair(KEYCIPHER, KEYSIZE)
+              writeKey(keyPair, own)
+              System.out.println("PUBLIC KEY")
+              System.out.println(getPubKey(keyPair))
+            case _ => throw new EmptyOwnException
           }
-          else
-            throw new EmptyOwnException
 
         case _ =>
-          val own = parsingOWN(cmd)
+          val ownOption = parsingOWN(cmd)
           val mua = parsingMAU(cmd)
-          val date = parsingDATE(cmd)
-
+          val date = getDate(cmd)
           if (mua > 0)
-            if (own != None)
-              if (date.after(new Date(System.currentTimeMillis()))) {
-                val keyReader = new KeyPairReader(s"${own}${ADDRESSSLASH}private-${own}")
-                val privatekey = keyReader.readPrivate(IOFormat.BASE64)
-                writeLicence(createLicence(mua, own, date, privatekey.getPair.getPrivate))
+            if (date.after(new Date(System.currentTimeMillis()))) {
+              ownOption match {
+                case Some(own) =>
+                  val keyAddress = s"${own}" + SEPARATOR
+                  try {
+                    val keyReader = new KeyPairReader(keyAddress + "private-" + own)
+                    val privatekey = keyReader.readPrivate(IOFormat.BASE64)
+                    writeLicence(createLicence(mua, own, date, privatekey.getPair.getPrivate))
+                  }
+                  catch {
+                    case ex: FileNotFoundException =>
+                      logger.error(s"There is no private key in folder\n ${WORKINGDIRECTORYADDRESS + keyAddress}")
+                      System.out.println(getInformation())
+                  }
+                case _ => throw new EmptyOwnException
               }
-              else throw new DateHasAlreadyExpiredException
-            else throw new EmptyOwnException
+            }
+            else throw new DateHasAlreadyExpiredException
+          //
           else throw new NumberFormatException
       }
-    }
-    catch {
+
+    } catch {
       case ex: PrivKeyAlreadyExistsException =>
         System.out.println(getInformation())
       case ex: DateHasAlreadyExpiredException =>
         logger.error("Date has already expired")
         System.out.println(getInformation())
-      case ex: NotValidDateException =>
-        logger.error(s"expire date is not valid")
+      case ex: ExpireDateMissingException =>
+        logger.error(s"The expired date parameter is not recognized")
         System.out.println(getInformation())
       case ex: NumberFormatException =>
-        logger.error(s"error parsing the number of active users parameter")
+        logger.error(s"Error parsing the number of active users parameter")
         System.out.println(getInformation())
       case ex: java.text.ParseException =>
         logger.error(s"Error parsing ${options.getOption(DATE).getDescription}")
         System.out.println(getInformation())
       case ex: EmptyOwnException =>
         logger.error(s"Error parsing ${options.getOption(OWN).getDescription}")
-        System.out.println(getInformation())
-      case ex: NullPointerException =>
-        logger.error(s"Error parsing ${options.getOption(DATE).getDescription}")
         System.out.println(getInformation())
       case ex: UnrecognizedOptionException =>
         logger.error("Invalid command entered")
@@ -224,9 +235,6 @@ object Licences {
         System.out.println(getInformation())
       case ex: IllegalArgumentException =>
         logger.error(s"Invalid key format")
-        System.out.println(getInformation())
-      case ex: FileNotFoundException =>
-        logger.error(s"There is no private key for the company")
         System.out.println(getInformation())
     }
   }

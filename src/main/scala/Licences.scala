@@ -38,8 +38,8 @@ object Licences {
 
   private val DATEFORMAT = "yyyy-MM-dd HH:mm:ss"
   private val KEYCIPHER = "RSA"
-  private val KEYSIZE = 512
-  private val LICENSEDIGEST = "SHA"
+  private val KEYSIZE = 4096
+  private val LICENSEDIGEST = "SHA-512"
   private val LICENSEOWN = "owner"
   private val LICENSEMAU = "mau"
   private val SEPARATOR = File.separator
@@ -138,7 +138,7 @@ object Licences {
   def getPubKey(keyPair: LicenseKeyPair): String = {
 
     val key = keyPair.getPublic()
-    val calculatedDigest = MessageDigest.getInstance("SHA-512").digest(key)
+    val calculatedDigest = MessageDigest.getInstance(LICENSEDIGEST).digest(key)
 
     def convertToJavaCode(i: Int, maxIndex: Int, str: String, f: Int => Int): String = {
 

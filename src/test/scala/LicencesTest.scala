@@ -177,6 +177,13 @@ class LicencesTest extends FunSuite {
           createArrayByte(str.substring(indexFinish + 1), keyList :+ Integer.parseInt(substringByte, 16).toByte)
       }
     }
+
     assert(createArrayByte(pubKeyString, Nil).toArray === keys.getPublic)
+  }
+
+  test("license validation test") {
+    val pairKey = createKeyPair(CHIPER, KEYSIZE)
+    val licence = createLicence(10, "own", new Date(10000), pairKey.getPair.getPrivate)
+    assert(licence.isOK(pairKey.getPair.getPublic))
   }
 }

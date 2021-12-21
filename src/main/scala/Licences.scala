@@ -115,6 +115,7 @@ object Licences {
     val idCompany = license.getFeatures.get(LICENSEOWN).getString
     val writerLicense = new LicenseWriter(s"${idCompany + SEPARATOR}license-${idCompany}")
     writerLicense.write(license, IOFormat.STRING)
+    System.out.println(s"from license ${license.get("expiryDate").getDate}")
     //logger.debug("license was recorded")
     System.out.println(s"The license was created and written to a file license-${idCompany} " +
       s"\nin folder: ${WORKINGDIRECTORYADDRESS + idCompany}")
@@ -176,6 +177,7 @@ object Licences {
           ownOption match {
             case Some(own) =>
               val keyPair = createKeyPair(KEYCIPHER, KEYSIZE)
+              System.out.println(s"\ninput parameters: \n   key    -> true \nCompanyId -> ${own}\n")
               writeKey(keyPair, own)
               System.out.println("PUBLIC KEY")
               System.out.println(getPubKey(keyPair))
@@ -194,6 +196,7 @@ object Licences {
                   try {
                     val keyReader = new KeyPairReader(keyAddress + "private-" + own)
                     val privatekey = keyReader.readPrivate(IOFormat.BASE64)
+                    System.out.println(date)
                     writeLicence(createLicence(mua, own, date, privatekey.getPair.getPrivate))
                   }
                   catch {
